@@ -8,6 +8,7 @@ CORS(app)  # CORS-Unterstützung hinzufügen
 
 DATABASE = 'passwords.db'
 PASSWORD_FILE = 'rockyou2024.txt'  # Dein Dateiname hier
+BATCH_SIZE = 10000  # Anzahl der Passwörter pro Batch
 
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
@@ -17,6 +18,7 @@ def get_db_connection():
 def init_db():
     with get_db_connection() as conn:
         cursor = conn.cursor()
+        cursor.execute('PRAGMA journal_mode=WAL;')  # Aktivieren des WAL-Modus
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS passwords (
                 password TEXT PRIMARY KEY
@@ -27,14 +29,25 @@ def init_db():
 def load_passwords_to_db():
     with get_db_connection() as conn:
         cursor = conn.cursor()
+        cursor.execute('PRAGMA synchronous=OFF;')  # Deaktivieren der Synchronisation
+        cursor.execute('BEGIN TRANSACTION;')
+        
+        batch = []
         with open(PASSWORD_FILE, 'r', encoding='utf-8') as file:
             for line in file:
                 password = line.strip()
-                try:
-                    cursor.execute('INSERT INTO passwords (password) VALUES (?)', (password,))
-                except sqlite3.IntegrityError:
-                    # Password already exists, skip it
-                    pass
+                batch.append((password,))
+                if len(batch) >= BATCH_SIZE:
+                    cursor.executemany('INSERT OR IGNORE INTO passwords (password) VALUES (?)', batch)
+                    conn.commit()
+                    cursor.execute('BEGIN TRANSACTION;')
+                    batch.clear()
+        
+        if batch:
+            cursor.executemany('INSERT OR IGNORE INTO passwords (password) VALUES (?)', batch)
+            conn.commit()
+
+        cursor.execute('PRAGMA synchronous=NORMAL;')  # Reaktivieren der Synchronisation
         conn.commit()
 
 # Initialisiere die Datenbank und lade Passwörter beim Start
