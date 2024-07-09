@@ -2,14 +2,12 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import sqlite3
 import os
-from multiprocessing import Pool, cpu_count
 
 app = Flask(__name__)
 CORS(app)  # CORS-Unterstützung hinzufügen
 
 DATABASE = 'passwords.db'
 PASSWORD_FILE = 'rockyou2024.txt'  # Dein Dateiname hier
-BATCH_SIZE = 1000  # Anzahl der Passwörter pro Batch
 
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
@@ -26,38 +24,18 @@ def init_db():
         ''')
         conn.commit()
 
-def insert_passwords(batch):
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
-    cursor.executemany('INSERT OR IGNORE INTO passwords (password) VALUES (?)', ((pw,) for pw in batch))
-    conn.commit()
-    conn.close()
-
-def process_file_chunk(file_chunk):
-    batch = []
-    for line in file_chunk:
-        password = line.strip()
-        batch.append(password)
-        if len(batch) >= BATCH_SIZE:
-            insert_passwords(batch)
-            batch = []
-    if batch:
-        insert_passwords(batch)
-
-def read_file_in_chunks(file_path, chunk_size=1024*1024*10):
-    with open(file_path, 'r', encoding='utf-8') as file:
-        while True:
-            lines = file.readlines(chunk_size)
-            if not lines:
-                break
-            yield lines
-
 def load_passwords_to_db():
-    pool = Pool(cpu_count())
-    for file_chunk in read_file_in_chunks(PASSWORD_FILE):
-        pool.apply_async(process_file_chunk, args=(file_chunk,))
-    pool.close()
-    pool.join()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        with open(PASSWORD_FILE, 'r', encoding='utf-8') as file:
+            for line in file:
+                password = line.strip()
+                try:
+                    cursor.execute('INSERT INTO passwords (password) VALUES (?)', (password,))
+                except sqlite3.IntegrityError:
+                    # Password already exists, skip it
+                    pass
+        conn.commit()
 
 # Initialisiere die Datenbank und lade Passwörter beim Start
 if not os.path.exists(DATABASE):
