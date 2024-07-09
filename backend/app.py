@@ -2,13 +2,12 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import sqlite3
 import os
-import csv
 
 app = Flask(__name__)
 CORS(app)  # CORS-Unterstützung hinzufügen
 
 DATABASE = 'passwords.db'
-PASSWORD_FILE = 'rockyou2024.txt'
+PASSWORD_FILE = 'rockyou2024.txt'  # Dein Dateiname hier
 
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
@@ -29,14 +28,13 @@ def load_passwords_to_db():
     with get_db_connection() as conn:
         cursor = conn.cursor()
         with open(PASSWORD_FILE, 'r', encoding='utf-8') as file:
-            reader = csv.reader(file)
-            for row in reader:
-                for password in row:
-                    try:
-                        cursor.execute('INSERT INTO passwords (password) VALUES (?)', (password.strip(),))
-                    except sqlite3.IntegrityError:
-                        # Password already exists, skip it
-                        pass
+            for line in file:
+                password = line.strip()
+                try:
+                    cursor.execute('INSERT INTO passwords (password) VALUES (?)', (password,))
+                except sqlite3.IntegrityError:
+                    # Password already exists, skip it
+                    pass
         conn.commit()
 
 # Initialisiere die Datenbank und lade Passwörter beim Start
