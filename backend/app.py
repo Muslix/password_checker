@@ -11,7 +11,7 @@ def load_passwords(file_path):
     return passwords
 
 # Laden Sie die Passwörter beim Start der Anwendung
-passwords = ['test'] #load_passwords("rockyou2024.txt")
+passwords = load_passwords("rockyou2024.txt")
 
 @app.route('/check_password', methods=['POST'])
 def check_password():
