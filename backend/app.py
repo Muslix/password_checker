@@ -26,11 +26,17 @@ def init_db():
         ''')
         conn.commit()
 
+def insert_passwords(batch):
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.executemany('INSERT OR IGNORE INTO passwords (password) VALUES (?)', batch)
+    conn.commit()
+    conn.close()
+
 def load_passwords_to_db():
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute('PRAGMA synchronous=OFF;')  # Deaktivieren der Synchronisation
-        cursor.execute('BEGIN TRANSACTION;')
         
         batch = []
         with open(PASSWORD_FILE, 'r', encoding='utf-8') as file:
@@ -38,14 +44,11 @@ def load_passwords_to_db():
                 password = line.strip()
                 batch.append((password,))
                 if len(batch) >= BATCH_SIZE:
-                    cursor.executemany('INSERT OR IGNORE INTO passwords (password) VALUES (?)', batch)
-                    conn.commit()
-                    cursor.execute('BEGIN TRANSACTION;')
-                    batch.clear()
+                    insert_passwords(batch)
+                    batch = []
         
         if batch:
-            cursor.executemany('INSERT OR IGNORE INTO passwords (password) VALUES (?)', batch)
-            conn.commit()
+            insert_passwords(batch)
 
         cursor.execute('PRAGMA synchronous=NORMAL;')  # Reaktivieren der Synchronisation
         conn.commit()

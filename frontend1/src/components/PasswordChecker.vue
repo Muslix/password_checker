@@ -20,7 +20,7 @@ export default {
   },
   methods: {
     async checkPassword() {
-      const response = await fetch('http://localhost:5000/check_password', {
+      const response = await fetch('http://192.168.100.150:5000/check_password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
