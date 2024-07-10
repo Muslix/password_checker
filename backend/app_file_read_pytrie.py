@@ -1,21 +1,24 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import pytrie
 
 app = Flask(__name__)
 CORS(app)
 
-PASSWORD_FILE = 'rockyou2024.txt'  # Dein Dateiname hier
+PASSWORD_FILE = 'rockyou2024.txt'
 
-# Passwörter einmalig in ein Set laden
+# Passwörter einmalig in einen Trie laden
+trie = pytrie.StringTrie()
 with open(PASSWORD_FILE, 'r', encoding='utf-8') as file:
-    unsafe_passwords = set(line.strip() for line in file)
+    for line in file:
+        trie[line.strip()] = True
 
 @app.route('/check_password', methods=['POST'])
 def check_password():
     data = request.get_json()
     password = data.get('password')
 
-    if password in unsafe_passwords:
+    if password in trie:
         return jsonify({"status": "unsafe"})
     else:
         return jsonify({"status": "safe"})
